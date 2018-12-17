@@ -8,20 +8,6 @@ public class YandexSpellerConstants {
     public static final String PARAM_LANG = "lang";
     public static final String PARAM_FORMAT = "format";
 
-    public enum ErrorCodes {
-
-        ERROR_UNKNOWN_WORD(1),
-        ERROR_REPEAT_WORD(2),
-        ERROR_CAPITALIZATION(3),
-        ERROR_TOO_MANY_ERRORS(4);
-
-        public Integer code;
-
-        ErrorCodes(Integer code) {
-            this.code = code;
-        }
-    }
-
     public enum SingleWords {
 
         YLLOW("Yellow"),

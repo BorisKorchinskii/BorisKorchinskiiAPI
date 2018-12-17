@@ -19,19 +19,19 @@ import java.util.HashMap;
 import java.util.List;
 
 import static core.YandexSpellerConstants.*;
-import static io.restassured.http.Method.POST;
+import static io.restassured.http.Method.GET;
 import static org.hamcrest.Matchers.lessThan;
 
 public class YandexSpellerApi {
 
-   //builder pattern
+
     private YandexSpellerApi() {
     }
 
-    public Method method = POST;
+    public Method method = GET;
 
     private HashMap<String, String> params = new HashMap<>();
-    //for checkTexts
+
     private HashMap<String, List<String>> texts = new HashMap<>();
 
     public static class ApiBuilder {
@@ -46,15 +46,13 @@ public class YandexSpellerApi {
             return this;
         }
 
-        //for checkTexts
         public ApiBuilder texts(String... texts) {
             spellerApi.texts.put(PARAM_TEXT, Arrays.asList(texts));
             return this;
         }
 
-
-        public ApiBuilder options(String options) {
-            spellerApi.params.put(PARAM_OPTIONS, options);
+        public ApiBuilder options(int options) {
+            spellerApi.params.put(PARAM_OPTIONS, String.valueOf(options));
             return this;
         }
 
@@ -87,8 +85,6 @@ public class YandexSpellerApi {
                     .log().all()
                     .get(YANDEX_SPELLER_API_URI_TEXTS).prettyPeek();
         }
-
-
     }
 
     public static ResponseSpecification successResponse() {
@@ -100,9 +96,17 @@ public class YandexSpellerApi {
                 .build();
     }
 
+    public static ResponseSpecification failedResponse() {
+        return new ResponseSpecBuilder()
+                .expectHeader("Connection", "close")
+                .expectResponseTime(lessThan(20000L))
+                .expectStatusCode(HttpStatus.SC_REQUEST_URI_TOO_LONG)
+                .build();
+    }
+
     public static RequestSpecification baseRequestConfiguration() {
         return new RequestSpecBuilder()
-                .setAccept(ContentType.JSON)
+                .setAccept(ContentType.XML)
                 .setRelaxedHTTPSValidation()
                 .setBaseUri(YANDEX_SPELLER_API_URI)
                 .build();

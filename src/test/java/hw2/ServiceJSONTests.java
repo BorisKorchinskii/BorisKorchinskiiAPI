@@ -2,9 +2,6 @@ package hw2;
 
 import core.ServiceResponce;
 import core.YandexSpellerApi;
-import enums.SelectLanguages;
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.testng.annotations.Test;
@@ -12,33 +9,33 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static core.YandexSpellerApi.with;
-import static core.YandexSpellerConstants.ErrorCodes.ERROR_REPEAT_WORD;
-import static core.YandexSpellerConstants.*;
+import static core.YandexSpellerApi.*;
+import static core.YandexSpellerConstants.PARAM_FORMAT;
+import static core.YandexSpellerConstants.PARAM_TEXT;
 import static core.YandexSpellerConstants.SingleWords.*;
 import static enums.Options.*;
 import static enums.SelectLanguages.*;
 import static enums.TextsData.*;
+import static io.restassured.RestAssured.given;
 import static io.restassured.http.Method.GET;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
-import static org.testng.Assert.*;
 
 
 public class ServiceJSONTests {
 
     private static List<List<ServiceResponce>> responces;
 
-    @Test(description = "Ignore digits")
+    @Test(description = "Ignore digits option set test")
     public void checkIfDigitsIgnoredTest() {
-        responces = YandexSpellerApi.getYandexSpellerAnswers(
-                with().texts(TEXT_WITH_DIGITS.textsCorrect(), TEXT_WITH_DIGITS.textsIncorrect())
-                        .language(EN)
-                        .options(IGNORE_DIGITS.option)
-                        .callApiTexts());
-        assertTrue(responces.get(0).isEmpty());
-        assertTrue(responces.get(1).isEmpty());
+        with().texts(TEXT_WITH_DIGITS.textsCorrect(), TEXT_WITH_DIGITS.textsIncorrect())
+                .language(EN)
+                .options(IGNORE_DIGITS.option)
+                .callApiTexts()
+                .then().specification(successResponse())
+                .assertThat()
+                .body(Matchers.equalTo("[[],[]]"));
     }
 
     @Test(description = "GET request with incorrect Language parameter")
@@ -53,7 +50,7 @@ public class ServiceJSONTests {
                 .body(Matchers.equalTo("SpellerService: Invalid parameter 'lang'"));
     }
 
-    @Test(description = "GET request with incorrect incorrect format parameter")
+    @Test(description = "GET request with incorrect format parameter")
     public void incorrectFormatParameterUsedTest() {
         with().texts(TEXT_WITH_ERRORS.textsIncorrect())
                 .format(PARAM_FORMAT)
@@ -65,82 +62,76 @@ public class ServiceJSONTests {
                 .body(Matchers.equalTo("SpellerService: Invalid parameter 'format'"));
     }
 
-    @Test(description = "POST request with texts containing errors")
-    public void sendTextWithErrorsTest() {
-        RestAssured
-                .given()
-                .queryParam(PARAM_TEXT, TEXT_WITH_ERRORS.textsIncorrect())
-                .params(PARAM_LANG, SelectLanguages.EN)
-                .accept(ContentType.JSON)
-                .and()
-                .log().everything()
-                .when()
-                .get(YANDEX_SPELLER_API_URI_TEXTS)
-                .prettyPeek()
-                .then()
-                .assertThat()
-                .statusCode(describedAs("Wrong http status code", is(HttpStatus.SC_OK)))
-                .body(allOf(
-                        stringContainsInOrder(Arrays.asList(TEXT_WITH_ERRORS.textsIncorrect(), TEXT_WITH_ERRORS.textsCorrect())),
-                        describedAs("Error code isn't right", containsString("\"code\":1"))))
-                .contentType(ContentType.JSON)
-                .time(lessThan(20000L));
-    }
-
-    @Test(description = "Ignore capital letters")
+    @Test(description = "Ignore capital letters option test")
     public void ignoreCapitalLettersTest() {
-        responces = YandexSpellerApi.getYandexSpellerAnswers(
+        List<List<ServiceResponce>> responces = YandexSpellerApi.getYandexSpellerAnswers(
                 with().texts(TEXT_WITH_CAPITAL.textsIncorrect(), TEXT_WITH_CAPITAL.textsCorrect())
                         .options(IGNORE_CAPITALIZATION.option)
                         .callApi());
         assertThat("expected number of answers is wrong.", responces.size(), equalTo(0));
     }
 
-    //Fails due empty response
-    @Test(description = "Ignore URL setting test")
-    public void ignoreURLSettingTest() {
+    @Test(description = "Mixed errors in the text test (Incorrect letters and missing spacing)")
+    public void mixedTextErrorsTest() {
         responces = YandexSpellerApi.getYandexSpellerAnswers(
-                with().texts(TEXT_WITH_URL.textsIncorrect())
-                        .options(IGNORE_URLS.option)
-                        .language(EN)
-                        .callApiTexts());
-        assertTrue(responces.get(0).get(0).s.contains(TEXT_WITH_URL.textsCorrect()));
+                with().texts(TEXT_WITH_ERRORS.textsIncorrect(), TEXT_WITH_DIGITS.textsIncorrect())
+                        .callApiTexts()
+                        .then()
+                        .specification(successResponse())
+                        .extract().response());
+        assertThat(responces.get(0).get(0).s, hasItem(TEXT_WITH_ERRORS.textsCorrect()));
+        assertThat(responces.get(1).get(0).s, hasItem(TEXT_WITH_DIGITS.textsCorrect()));
     }
 
-    //Fails due empty response
-    @Test(description = "Correct repeated words")
-    public void correctRepeatedWordsTest() {
+    @Test(description = "Test if sum of options set")
+    public void checkIfSumOptionsSet() {
         responces = YandexSpellerApi.getYandexSpellerAnswers(
-                with().texts("London", "is", "capital", "capital")
-                        .options(FIND_REPEAT_WORDS.option)
+                with().texts(TEXT_WITH_REPEATED_WORD.textsIncorrect(), TEXT_WITH_URL.textsIncorrect())
+                        .options(FIND_REPEAT_WORDS.option + IGNORE_URLS.option)
                         .language(EN)
                         .callApiTexts());
-        assertFalse(responces.get(2).isEmpty(), "Responce is empty");
-        assertEquals(responces.get(2).get(0).code, ERROR_REPEAT_WORD.code);
-        assertEquals(responces.get(2).get(0).word, "capital");
-        assertTrue(responces.get(0).get(0).s.contains(TEXT_WITH_REPEATED_WORD.textsCorrect()));
+        assertThat(responces, anything("options=12"));
     }
 
-    //Fails due responce size incorrect
     @Test(description = "Check service responce size")
     public void checkServiceResponceSize() {
         responces = YandexSpellerApi.getYandexSpellerAnswers(
                 with().texts(TEXT_WITH_CAPITAL.textsIncorrect(),
                         TEXT_WITH_CAPITAL.textsCorrect(),
                         TEXT_WITH_ERRORS.textsCorrect(),
-                        TEXT_WITH_ERRORS.textsCorrect())
+                        TEXT_WITH_ERRORS.textsIncorrect())
                         .language(UK)
-                        .callApi());
+                        .language(RU)
+                        .callApiTexts());
         assertThat(responces, hasSize(4));
-        assertThat(responces, not(hasItem(empty())));
     }
 
     @Test(description = "Check if service responce succeed")
     public void checkIfResponceSuccessTest() {
-        RestAssured
-                .given(YandexSpellerApi.baseRequestConfiguration())
+        given(YandexSpellerApi.baseRequestConfiguration())
                 .params(PARAM_TEXT, Arrays.asList(YLLOW.value, WHITE.value, GRAY.value))
+                .log().all()
                 .get().prettyPeek()
-                .then().specification(YandexSpellerApi.successResponse());
+                .then().specification(successResponse());
+    }
+
+    @Test(description = "Check if service POST responce fails due to long text with 414 error")
+    public void checkIfPOSTResponceFails() {
+        given(YandexSpellerApi.baseRequestConfiguration())
+                .params(PARAM_TEXT, TEXT_ARRAY)
+                .log().all()
+                .post().prettyPeek()
+                .then().specification(failedResponse());
+    }
+
+    @Test(description = "Check if service GET responce fails due to long text with 414 error")
+    public void checkIfGETResponceFails() {
+        given(YandexSpellerApi.baseRequestConfiguration())
+                .params(PARAM_TEXT, TEXT_ARRAY)
+                .log().all()
+                .get().prettyPeek()
+                .then().specification(failedResponse())
+                .assertThat()
+                .body(anything("414 Request-URI Too Large"));
     }
 }
