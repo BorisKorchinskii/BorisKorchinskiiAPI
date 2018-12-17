@@ -40,7 +40,7 @@ public class ServiceJSONTests {
 
     @Test(description = "GET request with incorrect Language parameter")
     public void sendIncorrectLanguageParameterTest() {
-        with().texts("Тест", "Test", "la prueba")
+        with().texts(TEXT_WITH_ERRORS.textsIncorrect(), TEXT_WITH_CAPITAL.textsCorrect(), TEXT_WITH_DIGITS.textsCorrect())
                 .language(INVALID_LANG)
                 .httpMethod(GET)
                 .callApi()
