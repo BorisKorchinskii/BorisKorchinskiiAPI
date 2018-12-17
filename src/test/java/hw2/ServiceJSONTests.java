@@ -64,7 +64,7 @@ public class ServiceJSONTests {
 
     @Test(description = "Ignore capital letters option test")
     public void ignoreCapitalLettersTest() {
-        List<List<ServiceResponce>> responces = YandexSpellerApi.getYandexSpellerAnswers(
+        responces = YandexSpellerApi.getYandexSpellerAnswers(
                 with().texts(TEXT_WITH_CAPITAL.textsIncorrect(), TEXT_WITH_CAPITAL.textsCorrect())
                         .options(IGNORE_CAPITALIZATION.option)
                         .callApi());
